@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <title>设备报修</title>
+    <style>
+        * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, sans-serif; }
+        body { 
+            margin: 0; 
+            padding: 40px; 
+            background: #f5f7fa; 
+            text-align: center; 
+            max-width: 1200px; /* 适配iPad横屏宽度 */
+            margin: 0 auto; 
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        h1 { color: #333; margin: 0 0 30px; font-size: 32px; /* 放大标题 */ }
+        .tip { color: #999; font-size: 16px; margin-bottom: 40px; }
+        
+        /* 故障类型按钮容器 - 横版排列 */
+        .problem-btns {
+            display: flex;
+            gap: 16px; /* 按钮间距 */
+            margin-bottom: 30px;
+            flex-wrap: wrap; /* 适配小尺寸横屏 */
+            justify-content: center;
+        }
+        .btn { 
+            flex: 1;
+            min-width: 200px; /* 按钮最小宽度 */
+            max-width: 300px; /* 按钮最大宽度 */
+            padding: 28px 20px; /* 放大按钮内边距 */
+            background: #fff; 
+            border: 1px solid #ddd; 
+            border-radius: 16px; 
+            font-size: 20px; 
+            color: #333; 
+            cursor: pointer; 
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .btn.active { background: #007aff; color: #fff; border-color: #007aff; }
+        
+        /* 表单容器 - 改为横向排版 + 平均分布 */
+        .form-container {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+            justify-content: center;
+            width: 100%;
+        }
+        .form-item {
+            flex: 1;
+            min-width: 280px; /* 输入框最小宽度 */
+            max-width: calc(50% - 10px); /* 确保两个输入框平均分布，减去间距的一半 */
+        }
+        
+        /* 普通输入框样式（适配横屏） */
+        input { 
+            width: 100%; 
+            padding: 24px 20px; /* 放大输入框内边距 */
+            border-radius: 14px; 
+            border: 1px solid #ddd; 
+            font-size: 20px; /* 放大输入框字体 */
+            appearance: none;
+            -webkit-appearance: none;
+            background: #fff;
+        }
+        input:focus { outline: none; border-color: #007aff; }
+        
+        #submit { 
+            background: #007aff; 
+            color: #fff; 
+            font-weight: bold; 
+            border: none; 
+            padding: 28px; 
+            border-radius: 16px; 
+            margin-top: 20px; 
+            width: 100%; 
+            max-width: 500px; /* 限制提交按钮最大宽度 */
+            font-size: 22px; /* 放大提交按钮字体 */
+            cursor: pointer;
+            transition: background 0.2s;
+            margin-left: auto;
+            margin-right: auto;
+        }
+        #submit:hover { background: #0066e0; }
+        #submit:disabled { background: #999; cursor: not-allowed; }
+        
+        #msg { 
+            margin-top: 20px; 
+            font-size: 18px; 
+            min-height: 24px; 
+            font-weight: 500;
+        }
+        .error { color: #ff3b30; }
+        .success { color: #007aff; }
+
+        /* iPad横屏专属适配 */
+        @media (orientation: landscape) and (min-width: 768px) {
+            .problem-btns {
+                gap: 20px;
+            }
+            .btn {
+                padding: 32px 24px;
+                font-size: 22px;
+            }
+            .form-container {
+                gap: 20px;
+            }
+            input {
+                padding: 28px 24px;
+                font-size: 22px;
+            }
+            #submit {
+                padding: 32px;
+                font-size: 24px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1>设备报修</h1>
+    <div class="tip">提交后会实时推送消息到飞书</div>
+
+    <!-- 故障类型按钮容器 - 横版排列 -->
+    <div class="problem-btns">
+        <div class="btn" onclick="toggle(this, '屏幕破损')">屏幕破损</div>
+        <div class="btn" onclick="toggle(this, '机身变形')">机身变形</div>
+        <div class="btn" onclick="toggle(this, '系统问题')">系统问题</div>
+        <div class="btn" onclick="toggle(this, '其他问题')">其他问题</div>
+    </div>
+
+    <!-- 表单容器 - 姓名和班级平均分布 -->
+    <div class="form-container">
+        <div class="form-item">
+            <input type="text" id="name" placeholder="姓名（必填）">
+        </div>
+        <div class="form-item">
+            <input type="text" id="className" placeholder="所在班级（必填）">
+        </div>
+    </div>
+    
+    <button onclick="submitReport()" id="submit">提交报修</button>
+    <div id="msg"></div>
+
+    <script>
+        let problems = [];
+        let isSubmitting = false;
+        let lastSubmitTime = 0; // 记录最后一次提交时间
+        const COOLDOWN_TIME = 60 * 1000; // 冷却时间60秒
+        // 多机器人分流（替换为自己的机器人地址）
+        const FEISHU_WEBHOOK_LIST = [
+            "https://open.feishu.cn/open-apis/bot/v2/hook/51e6dbac-cd30-46fd-ae6c-d0535131d88c",
+            // "https://open.feishu.cn/open-apis/bot/v2/hook/a4df600a-b656-45cc-b9a5-e04527a7af3a",
+            // "https://open.feishu.cn/open-apis/bot/v2/hook/64088fd0-0ad8-447f-a983-986c19fe66e6"
+        ];
+
+        // 切换故障类型选择
+        function toggle(elem, val) {
+            if (problems.includes(val)) {
+                problems = problems.filter(p => p !== val);
+                elem.classList.remove('active');
+            } else {
+                problems.push(val);
+                elem.classList.add('active');
+            }
+        }
+
+        // 提交报修核心函数
+        async function submitReport() {
+            // 1. 检查冷却时间
+            const now = Date.now();
+            if (now - lastSubmitTime < COOLDOWN_TIME) {
+                const remainTime = Math.ceil((COOLDOWN_TIME - (now - lastSubmitTime)) / 60000);
+                showMsg(`提交过于频繁，请${remainTime}分钟后再试！`, 'error');
+                return;
+            }
+
+            // 2. 检查重复提交
+            if (isSubmitting) {
+                showMsg('请勿重复提交！', 'error');
+                return;
+            }
+
+            // 3. 验证表单（仅验证姓名和班级）
+            const name = document.getElementById('name').value.trim();
+            const className = document.getElementById('className').value.trim();
+            if (problems.length === 0 || !name || !className) {
+                showMsg('请完整填写姓名、班级并选择故障类型！', 'error');
+                return;
+            }
+
+            // 4. 标记提交中
+            isSubmitting = true;
+            const submitBtn = document.getElementById('submit');
+            submitBtn.disabled = true;
+            submitBtn.innerText = '提交中...';
+            showMsg('', '');
+
+            try {
+                // 5. 记录本次提交时间
+                lastSubmitTime = Date.now();
+
+                // 6. 构造请求数据（移除校区相关内容）
+                const requestData = {
+                    "msg_type": "text",
+                    "content": {
+                        "text": `【新设备报修】
+报修人：${name}
+所在班级：${className}
+故障类型：${problems.join('、')}
+提交时间：${new Date().toLocaleString('zh-CN')}`
+                    }
+                };
+                const requestBody = JSON.stringify(requestData);
+                console.log('发送给飞书的参数：', requestBody);
+
+                // 7. 随机选择机器人地址 + 随机延迟（0-2秒）
+                const randomWebhook = FEISHU_WEBHOOK_LIST[Math.floor(Math.random() * FEISHU_WEBHOOK_LIST.length)];
+                await new Promise(resolve => setTimeout(resolve, Math.random() * 2000));
+
+                // 8. 发送请求
+                const response = await fetch(randomWebhook, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json; charset=utf-8',
+                        'Accept': 'application/json'
+                    },
+                    body: requestBody,
+                    mode: 'cors'
+                });
+
+                const result = await response.json();
+                console.log('飞书返回结果：', result);
+
+                // 9. 处理响应
+                if (result.code === 0) {
+                    showMsg('报修提交成功！已推送消息到飞书', 'success');
+                    setTimeout(() => {
+                        resetForm();
+                        isSubmitting = false;
+                        submitBtn.disabled = false;
+                        submitBtn.innerText = '提交报修';
+                        showMsg('', '');
+                    }, 3000);
+                } else {
+                    // 精准识别限流错误
+                    if (result.code === 429) {
+                        throw new Error(`提交太频繁啦！飞书限制每分钟最多提交20次，请1分钟后再试～`);
+                    } else if (result.code === 1001) {
+                        throw new Error(`飞书机器人异常（已被删除/移出群），请联系管理员！`);
+                    } else if (result.code === 404) {
+                        throw new Error(`飞书机器人地址错误，请核对webhook！`);
+                    } else {
+                        throw new Error(`飞书返回错误：${result.msg}（错误码：${result.code}）`);
+                    }
+                }
+
+            } catch (error) {
+                console.error('提交失败详情：', error);
+                showMsg(`提交失败：${error.message}`, 'error');
+                // 恢复状态
+                isSubmitting = false;
+                submitBtn.disabled = false;
+                submitBtn.innerText = '提交报修';
+            }
+        }
+
+        // 重置表单
+        function resetForm() {
+            problems = [];
+            document.getElementById('name').value = '';
+            document.getElementById('className').value = '';
+            document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
+        }
+
+        // 显示提示
+        function showMsg(text, type) {
+            const msgEl = document.getElementById('msg');
+            msgEl.innerText = text;
+            msgEl.className = type;
+        }
+    </script>
+</body>
+</html>
