@@ -1,0 +1,282 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <title>设备报修</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 修复背景不显示：重构背景层，兼容iPad Safari */
+        body {
+            text-align: center;
+            position: relative;
+            z-index: 0;
+            padding: 20px;
+        }
+        /* 独立背景层，替代fixed属性 */
+        .bg-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://img.imgos.cn/cdn/20260512/7f117308645df058c928512ff46376c6.jpg') no-repeat center center;
+            background-size: cover;
+            -webkit-background-size: cover; /* 兼容iOS */
+            z-index: -2;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: -1;
+        }
+
+        h1 {
+            color: #fff;
+            margin: 20px 0 10px;
+            font-size: 28px;
+        }
+
+        .tip {
+            color: #ccc;
+            margin-bottom: 30px;
+            font-size: 16px;
+        }
+
+        /* ———————————————————————————————— */
+        /* 核心：统一最大宽度，上下完全对齐 */
+        /* ———————————————————————————————— */
+        .wrapper {
+            width: 100%;
+            max-width: 920px; /* 上下统一总宽度 */
+            margin: 0 auto 30px;
+            padding: 0; /* 移除默认padding，避免宽度偏差 */
+        }
+
+        /* 故障按钮布局 - 优化flex兼容性 */
+        .problem-btns {
+            display: -webkit-flex; /* 兼容iOS */
+            display: flex;
+            -webkit-flex-wrap: wrap;
+            flex-wrap: wrap;
+            gap: 12px;
+            width: 100%; /* 强制占满wrapper宽度 */
+        }
+        .btn {
+            -webkit-flex: 1;
+            flex: 1;
+            min-width: 150px;
+            padding: 18px 12px;
+            background: rgba(255,255,255,0.15);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 14px;
+            color: white;
+            font-size: 17px;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn.active {
+            background: rgba(0, 122, 255, 0.25);
+            border-color: rgba(0, 122, 255, 0.4);
+            color: white;
+        }
+
+        /* ———————————————————————————————— */
+        /* 表单3个框：和上面4个按钮总宽度一致 */
+        /* ———————————————————————————————— */
+        .form-container {
+            display: -webkit-flex; /* 兼容iOS */
+            display: flex;
+            -webkit-flex-wrap: wrap;
+            flex-wrap: wrap;
+            gap: 12px;
+            width: 100%; /* 强制占满wrapper宽度 */
+        }
+        .form-item {
+            -webkit-flex: 1;
+            flex: 1;
+            min-width: 150px; /* 与按钮min-width统一，避免宽度偏差 */
+            box-sizing: border-box; /* 强制继承box-sizing */
+        }
+
+        /* 玻璃输入框样式 */
+        input, .campus-tip {
+            width: 100%;
+            padding: 18px 16px;
+            background: rgba(255,255,255,0.15);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 14px;
+            color: white;
+            font-size: 17px;
+            box-sizing: border-box; /* 确保padding不影响宽度 */
+        }
+        input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+        .campus-tip {
+            text-align: center;
+        }
+
+        /* 提交按钮 */
+        #submit {
+            width: 100%;
+            max-width: 500px;
+            padding: 20px;
+            background: rgba(0, 122, 255, 0.25);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 122, 255, 0.4);
+            border-radius: 14px;
+            color: white;
+            font-size: 19px;
+            font-weight: bold;
+            cursor: pointer;
+            margin: 10px auto 20px;
+            box-sizing: border-box;
+        }
+        #submit:disabled {
+            background: rgba(150,150,150,0.2);
+            border-color: rgba(150,150,150,0.3);
+        }
+
+        #msg { font-size: 17px; color: white; }
+        .success { color: #4cd964; }
+        .error { color: #ff3b30; }
+    </style>
+</head>
+<body>
+    <!-- 背景层容器 -->
+    <div class="bg-layer"></div>
+
+    <h1>设备报修</h1>
+    <div class="tip">提交后会实时推送消息到飞书</div>
+
+    <!-- 4个故障按钮：总宽度由 wrapper 控制 -->
+    <div class="wrapper">
+        <div class="problem-btns">
+            <div class="btn" onclick="toggle(this, '屏幕破损')">屏幕破损</div>
+            <div class="btn" onclick="toggle(this, '机身变形')">机身变形</div>
+            <div class="btn" onclick="toggle(this, '系统问题')">系统问题</div>
+            <div class="btn" onclick="toggle(this, '其他问题')">其他问题</div>
+        </div>
+    </div>
+
+    <!-- 3个表单框：和上面总宽度完全一样 -->
+    <div class="wrapper">
+        <div class="form-container">
+            <div class="form-item">
+                <div class="campus-tip">所在校区：孪生城堡</div>
+                <input type="hidden" id="campus" value="孪生城堡">
+            </div>
+            <div class="form-item">
+                <input type="text" id="name" placeholder="姓名（必填）">
+            </div>
+            <div class="form-item">
+                <input type="text" id="className" placeholder="班级（必填）">
+            </div>
+        </div>
+    </div>
+
+    <button onclick="submitReport()" id="submit">提交报修</button>
+    <div id="msg"></div>
+
+<script>
+    let problems = [];
+    let isSubmitting = false;
+    let lastSubmitTime = 0;
+    const COOLDOWN = 60 * 1000;
+    const FEISHU_WEBHOOK_LIST = [
+        "https://open.feishu.cn/open-apis/bot/v2/hook/3cf3939a-c28c-4f32-9b37-8643bd0f7e29"
+    ];
+
+    function toggle(elem, val) {
+        if (elem.classList.contains('active')) {
+            problems = problems.filter(i => i !== val);
+            elem.classList.remove('active');
+        } else {
+            problems.push(val);
+            elem.classList.add('active');
+        }
+    }
+
+    async function submitReport() {
+        let now = Date.now();
+        if (now - lastSubmitTime < COOLDOWN) { showMsg("提交频繁，请1分钟后再试", "error"); return; }
+        if (isSubmitting) return;
+
+        let name = document.getElementById("name").value.trim();
+        let className = document.getElementById("className").value.trim();
+        let campus = document.getElementById("campus").value;
+
+        if (!name || !className || problems.length === 0) {
+            showMsg("请填写完整信息并选择故障", "error");
+            return;
+        }
+
+        isSubmitting = true;
+        let btn = document.getElementById("submit");
+        btn.disabled = true; btn.innerText = "提交中...";
+        lastSubmitTime = now;
+
+        let text = `【设备报修】
+报修人：${name}
+校区：${campus}
+班级：${className}
+故障：${problems.join("、")}
+时间：${new Date().toLocaleString()}`;
+
+        try {
+            let hook = FEISHU_WEBHOOK_LIST[Math.floor(Math.random() * FEISHU_WEBHOOK_LIST.length)];
+            let res = await fetch(hook, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ msg_type: "text", content: { text } })
+            });
+            let json = await res.json();
+            if (json.code === 0) {
+                showMsg("提交成功！", "success");
+                setTimeout(() => { reset(); isSubmitting = false; btn.disabled = false; btn.innerText = "提交报修"; }, 2500);
+            } else { throw new Error("推送失败"); }
+        } catch (e) {
+            showMsg("提交失败：" + e.message, "error");
+            isSubmitting = false; btn.disabled = false; btn.innerText = "提交报修";
+        }
+    }
+
+    function reset() {
+        problems = [];
+        document.getElementById("name").value = "";
+        document.getElementById("className").value = "";
+        document.querySelectorAll(".btn").forEach(b => b.classList.remove("active"));
+        showMsg("", "");
+    }
+
+    function showMsg(text, cls) {
+        let m = document.getElementById("msg");
+        m.innerText = text; m.className = cls;
+    }
+</script>
+</body>
+</html>
