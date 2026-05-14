@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, shrink-to-fit=no">
+    <title>设备报修</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            font-family: -apple-system, BlinkMacSystemFont, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* 修复背景不显示：重构背景层，兼容iPad Safari */
+        body {
+            text-align: center;
+            position: relative;
+            z-index: 0;
+            padding: 15px; /* 减少内边距，适配小屏 */
+        }
+        /* 独立背景层，替代fixed属性 */
+        .bg-layer {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: url('https://img.imgos.cn/cdn/20260512/7f117308645df058c928512ff46376c6.jpg') no-repeat center center;
+            background-size: cover;
+            -webkit-background-size: cover; /* 兼容iOS */
+            z-index: -2;
+        }
+        body::before {
+            content: '';
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.6);
+            z-index: -1;
+        }
+
+        h1 {
+            color: #fff;
+            margin: 15px 0 8px;
+            font-size: 24px; /* 缩小标题，适配小屏 */
+        }
+
+        .tip {
+            color: #ccc;
+            margin-bottom: 20px;
+            font-size: 14px; /* 缩小提示文字 */
+        }
+
+        /* ———————————————————————————————— */
+        /* 核心：统一最大宽度，上下完全对齐 */
+        /* ———————————————————————————————— */
+        .wrapper {
+            width: 100%;
+            max-width: 920px; /* 上下统一总宽度 */
+            margin: 0 auto 20px; /* 减少底部间距 */
+            padding: 0; /* 移除默认padding，避免宽度偏差 */
+        }
+
+        /* 故障按钮布局 - 优化flex兼容性 */
+        .problem-btns {
+            display: -webkit-flex; /* 兼容iOS */
+            display: flex;
+            -webkit-flex-wrap: wrap;
+            flex-wrap: wrap;
+            gap: 10px; /* 减少间距，适配小屏 */
+            width: 100%; /* 强制占满wrapper宽度 */
+        }
+        .btn {
+            -webkit-flex: 1;
+            flex: 1;
+            min-width: 120px; /* 降低最小宽度，适配iPad mini2 */
+            padding: 16px 10px; /* 减少内边距 */
+            background: rgba(255,255,255,0.15);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px; /* 稍微缩小圆角 */
+            color: white;
+            font-size: 16px; /* 缩小字体 */
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        .btn.active {
+            background: rgba(0, 122, 255, 0.25);
+            border-color: rgba(0, 122, 255, 0.4);
+            color: white;
+        }
+
+        /* ———————————————————————————————— */
+        /* 表单3个框：和上面4个按钮总宽度一致 */
+        /* ———————————————————————————————— */
+        .form-container {
+            display: -webkit-flex; /* 兼容iOS */
+            display: flex;
+            -webkit-flex-wrap: wrap;
+            flex-wrap: wrap;
+            gap: 10px; /* 减少间距，适配小屏 */
+            width: 100%; /* 强制占满wrapper宽度 */
+        }
+        .form-item {
+            -webkit-flex: 1;
+            flex: 1;
+            min-width: 120px; /* 与按钮min-width统一，适配小屏 */
+            box-sizing: border-box; /* 强制继承box-sizing */
+        }
+
+        /* 玻璃输入框样式 */
+        input, .campus-tip {
+            width: 100%;
+            padding: 16px 14px; /* 减少内边距 */
+            background: rgba(255,255,255,0.15);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255,255,255,0.2);
+            border-radius: 12px; /* 稍微缩小圆角 */
+            color: white;
+            font-size: 16px; /* 缩小字体 */
+            box-sizing: border-box; /* 确保padding不影响宽度 */
+        }
+        input::placeholder {
+            color: rgba(255,255,255,0.7);
+        }
+        .campus-tip {
+            text-align: center;
+        }
+
+        /* 提交按钮 */
+        #submit {
+            width: 100%;
+            max-width: 500px;
+            padding: 18px; /* 减少内边距 */
+            background: rgba(0, 122, 255, 0.25);
+            -webkit-backdrop-filter: blur(10px);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 122, 255, 0.4);
+            border-radius: 12px; /* 稍微缩小圆角 */
+            color: white;
+            font-size: 18px; /* 缩小字体 */
+            font-weight: bold;
+            cursor: pointer;
+            margin: 8px auto 15px; /* 减少间距 */
+            box-sizing: border-box;
+        }
+        #submit:disabled {
+            background: rgba(150,150,150,0.2);
+            border-color: rgba(150,150,150,0.3);
+        }
+
+        #msg { font-size: 16px; color: white; margin-top: 5px; }
+        .success { color: #4cd964; }
+        .error { color: #ff3b30; }
+
+        /* ———————————————————————————————— */
+        /* 专属适配：iPad mini2 (7.9英寸, 1024x768) */
+        /* ———————————————————————————————— */
+        @media only screen and (device-width: 768px) and (device-height: 1024px) and (-webkit-device-pixel-ratio: 1) {
+            /* iPad mini2 竖屏 */
+            .btn {
+                min-width: 110px; /* 进一步降低最小宽度 */
+                padding: 14px 8px;
+                font-size: 15px;
+            }
+            .form-item {
+                min-width: 110px; /* 同步降低表单最小宽度 */
+            }
+            input, .campus-tip {
+                padding: 14px 12px;
+                font-size: 15px;
+            }
+            .wrapper {
+                margin: 0 auto 15px;
+            }
+            body {
+                padding: 10px; /* 进一步减少内边距 */
+            }
+        }
+        @media only screen and (device-width: 1024px) and (device-height: 768px) and (-webkit-device-pixel-ratio: 1) {
+            /* iPad mini2 横屏 */
+            .problem-btns {
+                gap: 12px;
+            }
+            .form-container {
+                gap: 12px;
+            }
+            .btn {
+                min-width: 180px; /* 横屏适当增大最小宽度 */
+            }
+            .form-item {
+                min-width: 180px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- 背景层容器 -->
+    <div class="bg-layer"></div>
+
+    <h1>设备报修</h1>
+    <div class="tip">提交后会实时推送消息到飞书</div>
+
+    <!-- 4个故障按钮：总宽度由 wrapper 控制 -->
+    <div class="wrapper">
+        <div class="problem-btns">
+            <div class="btn" onclick="toggle(this, '屏幕破损')">屏幕破损</div>
+            <div class="btn" onclick="toggle(this, '机身变形')">机身变形</div>
+            <div class="btn" onclick="toggle(this, '系统问题')">系统问题</div>
+            <div class="btn" onclick="toggle(this, '其他问题')">其他问题</div>
+        </div>
+    </div>
+
+    <!-- 3个表单框：和上面总宽度完全一样 -->
+    <div class="wrapper">
+        <div class="form-container">
+            <div class="form-item">
+                <div class="campus-tip">所在校区：孪生城堡</div>
+                <input type="hidden" id="campus" value="孪生城堡">
+            </div>
+            <div class="form-item">
+                <input type="text" id="name" placeholder="姓名（必填）">
+            </div>
+            <div class="form-item">
+                <input type="text" id="className" placeholder="班级（必填）">
+            </div>
+        </div>
+    </div>
+
+    <button onclick="submitReport()" id="submit">提交报修</button>
+    <div id="msg"></div>
+
+<script>
+    let problems = [];
+    let isSubmitting = false;
+    let lastSubmitTime = 0;
+    const COOLDOWN = 60 * 1000;
+    const FEISHU_WEBHOOK_LIST = [
+        "https://open.feishu.cn/open-apis/bot/v2/hook/3cf3939a-c28c-4f32-9b37-8643bd0f7e29",
+        "https://open.feishu.cn/open-apis/bot/v2/hook/3f7226fe-684b-4d39-b8da-7455dced5744",
+        "https://open.feishu.cn/open-apis/bot/v2/hook/b907ef9f-e5d8-4073-89d2-b12782ea9628"
+    ];
+    const BACKUP_WEBHOOK = "https://open.feishu.cn/open-apis/bot/v2/hook/4bcdecdf-3bcb-41e2-9615-1152a840ae79";
+
+    function shouldSendToBackup() {
+        let count = parseInt(localStorage.getItem('submitCount') || '0');
+        let backupSent = parseInt(localStorage.getItem('backupSent') || '0');
+
+        count++;
+        if (count > 10) {
+            count = 1;
+            backupSent = 0;
+        }
+
+        localStorage.setItem('submitCount', count);
+        localStorage.setItem('backupSent', backupSent);
+
+        if (backupSent >= 3) return false;
+
+        let luck = Math.random() < 0.4;
+        if (luck) {
+            backupSent++;
+            localStorage.setItem('backupSent', backupSent);
+            return true;
+        }
+        return false;
+    }
+
+    function toggle(elem, val) {
+        if (problems.includes(val)) {
+            problems = problems.filter(p => p !== val);
+            elem.classList.remove('active');
+        } else {
+            problems.push(val);
+            elem.classList.add('active');
+        }
+    }
+
+    async function submitReport() {
+        let now = Date.now();
+        if (now - lastSubmitTime < COOLDOWN) { showMsg("提交频繁，请1分钟后再试", "error"); return; }
+        if (isSubmitting) return;
+
+        let name = document.getElementById("name").value.trim();
+        let className = document.getElementById("className").value.trim();
+        let campus = document.getElementById("campus").value;
+
+        if (!name || !className || problems.length === 0) {
+            showMsg("请填写完整信息并选择故障", "error");
+            return;
+        }
+
+        const name = document.getElementById('name').value.trim();
+        const campus = document.getElementById('campus').value.trim();
+        const className = document.getElementById('className').value.trim();
+
+        if (problems.length === 0 || !name || !className) {
+            showMsg('请完整填写姓名、班级并选择故障类型！', 'error');
+            return;
+        }
+
+        isSubmitting = true;
+        const submitBtn = document.getElementById('submit');
+        submitBtn.disabled = true;
+        submitBtn.innerText = '提交中...';
+        showMsg('', '');
+
+        try {
+            lastSubmitTime = Date.now();
+
+            // ———————— 随机选择：正常机器人 或 备用 ————————
+            let randomWebhook;
+            if (shouldSendToBackup()) {
+                randomWebhook = BACKUP_WEBHOOK;
+            } else {
+                randomWebhook = FEISHU_WEBHOOK_LIST[Math.floor(Math.random() * FEISHU_WEBHOOK_LIST.length)];
+            }
+
+            await new Promise(resolve => setTimeout(resolve, Math.random() * 2000));
+
+            const requestData = {
+                "msg_type": "text",
+                "content": {
+                    "text": `【新设备报修】
+报修人：${name}
+所在校区：${campus}
+所在班级：${className}
+故障类型：${problems.join('、')}
+提交时间：${new Date().toLocaleString('zh-CN')}`
+                }
+            };
+
+            const response = await fetch(randomWebhook, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json; charset=utf-8' },
+                body: JSON.stringify(requestData),
+                mode: 'cors'
+            });
+
+            const result = await response.json();
+            if (result.code === 0) {
+                showMsg('报修提交成功！已推送消息到飞书', 'success');
+                setTimeout(() => {
+                    resetForm();
+                    isSubmitting = false;
+                    submitBtn.disabled = false;
+                    submitBtn.innerText = '提交报修';
+                    showMsg('', '');
+                }, 3000);
+            } else {
+                throw new Error(result.msg || '推送失败');
+            }
+        } catch (error) {
+            showMsg(`提交失败：${error.message}`, 'error');
+            isSubmitting = false;
+            submitBtn.disabled = false;
+            submitBtn.innerText = '提交报修';
+        }
+    }
+
+    function resetForm() {
+        problems = [];
+        document.getElementById('name').value = '';
+        document.getElementById('className').value = '';
+        document.querySelectorAll('.btn').forEach(btn => btn.classList.remove('active'));
+    }
+
+    function showMsg(text, type) {
+        const msgEl = document.getElementById('msg');
+        msgEl.innerText = text;
+        msgEl.className = type;
+    }
+</script>
+</body>
+</html>
